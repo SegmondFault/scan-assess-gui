@@ -1739,7 +1739,7 @@ def main_page() -> None:
                     state["running"] = True
                     run_log.value = "Running assessment\n"
                     assessment_run_button.disable()
-                    cmd = [sys.executable, "-m", "src.scan_assess", "--live"]
+                    cmd = [sys.executable, "-u", "-m", "src.scan_assess", "--live"]
                     if prompt_select.value:
                         cmd.extend(["--prompt-profile", str(prompt_select.value)])
                     if state.get("active_llm_profile"):
@@ -1754,8 +1754,14 @@ def main_page() -> None:
                         stdout=asyncio.subprocess.PIPE,
                         stderr=asyncio.subprocess.STDOUT,
                     )
-                    output, _ = await process.communicate()
-                    run_log.value += output.decode("utf-8", errors="replace")
+                    assert process.stdout is not None
+                    while True:
+                        chunk = await process.stdout.read(4096)
+                        if not chunk:
+                            break
+                        run_log.value += chunk.decode("utf-8", errors="replace")
+                        run_log.update()
+                    await process.wait()
                     run_log.value += f"\nExit code: {process.returncode}"
                     latest_dnscap = load_module_runtime_config(MODULES_ROOT / "dnscap")
                     state["dnscap_last_run_utc"] = str(latest_dnscap.get("last_run_utc") or "")
@@ -1767,12 +1773,18 @@ def main_page() -> None:
                     ui.notify("Assessment complete." if process.returncode == 0 else "Assessment failed.", type="positive" if process.returncode == 0 else "negative")
 
                 def current_llm_profile_from_editor() -> LlmProfile:
+                    selected_name = str(llm_select.value or state.get("active_llm_profile") or "local-llamacpp")
+                    try:
+                        selected_profile = load_llm_profile(selected_name)
+                    except FileNotFoundError:
+                        selected_profile = load_llm_profile("local-llamacpp")
+                    provider = selected_profile.provider
                     return LlmProfile(
                         name=str(llm_name.value or "").strip(),
-                        provider="openai-compatible-local" if "localhost" in str(llm_base_url.value or "") else "openai-compatible",
+                        provider=provider,
                         base_url=str(llm_base_url.value or "").strip(),
                         model=str(llm_model.value or "").strip(),
-                        api_key="not-needed" if not str(llm_api_key_env.value or "").strip() and "localhost" in str(llm_base_url.value or "") else None,
+                        api_key="not-needed" if provider == "openai-compatible-local" and not str(llm_api_key_env.value or "").strip() else None,
                         api_key_env=str(llm_api_key_env.value or "").strip() or None,
                         description=str(llm_description.value or "").strip(),
                         context_size=int(llm_context_size.value or 32768),

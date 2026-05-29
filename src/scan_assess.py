@@ -159,7 +159,7 @@ def analyze_with_llm(files: list[dict[str, str]], prompt_profile: PromptProfile,
     sections = [f"File: {f['filename']}\n{f['file_data']}" for f in files]
     module_prompt: str = "\n\n".join(sections)
 
-    print("Analyzing with LLM...")
+    print("Analyzing with LLM...", flush=True)
     client = OpenAI(
         api_key=llm_profile.resolved_api_key() or "not-needed",
         base_url=llm_profile.base_url,
