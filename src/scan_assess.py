@@ -4,6 +4,7 @@ import json
 import os
 import platform
 import socket
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,6 +23,25 @@ MODULES_ROOT = PROJECT_ROOT / "modules"
 OUTPUTS_ROOT = PROJECT_ROOT / "outputs"
 REPORTS_ROOT = PROJECT_ROOT / "reports"
 LOCAL_TZ = ZoneInfo("Europe/Luxembourg")
+
+
+def _format_duration(seconds: float) -> str:
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    minutes, remainder = divmod(seconds, 60)
+    return f"{int(minutes)}m {remainder:.1f}s"
+
+
+def _report_output_token_cap() -> int | None:
+    raw_value = os.environ.get("SCAN_ASSESS_MAX_REPORT_TOKENS", "").strip()
+    if not raw_value:
+        return None
+    try:
+        value = int(raw_value)
+    except ValueError:
+        print(f"Ignoring invalid SCAN_ASSESS_MAX_REPORT_TOKENS value: {raw_value}", flush=True)
+        return None
+    return value if value > 0 else None
 
 def run_machine_info() -> dict[str, str]:
     hostname = socket.gethostname()
@@ -89,6 +109,8 @@ def configure_run_mode(options: RunOptions | None = None) -> tuple[list[str], Pr
     notes.append(f"LLM model: {llm_profile.model}")
     notes.append(f"LLM base URL: {llm_profile.base_url}")
     notes.append(f"LLM context size: {llm_profile.context_size}")
+    token_cap = _report_output_token_cap()
+    notes.append(f"LLM report output token cap: {token_cap if token_cap else 'disabled'}")
     enabled_modules = os.environ.get("SCAN_ASSESS_ENABLED_MODULES", "").strip()
     notes.append(f"enabled modules: {enabled_modules if enabled_modules else 'all detected modules'}")
 
@@ -159,22 +181,31 @@ def analyze_with_llm(files: list[dict[str, str]], prompt_profile: PromptProfile,
     sections = [f"File: {f['filename']}\n{f['file_data']}" for f in files]
     module_prompt: str = "\n\n".join(sections)
 
-    print("Analyzing with LLM...", flush=True)
+    token_cap = _report_output_token_cap()
+    cap_label = f", max {token_cap} output tokens" if token_cap else ""
+    print(
+        f"Analyzing with LLM ({len(files)} telemetry files, {len(module_prompt):,} characters{cap_label})...",
+        flush=True,
+    )
     client = OpenAI(
         api_key=llm_profile.resolved_api_key() or "not-needed",
         base_url=llm_profile.base_url,
     )
 
-    response = client.chat.completions.create(
-        model=llm_profile.model,
-        messages=[
+    request: dict[str, object] = {
+        "model": llm_profile.model,
+        "messages": [
             {"role": "system", "content": prompt_profile.system_prompt},
             {
                 "role": "user",
                 "content": f"{prompt_profile.user_prompt}\n\n{module_prompt}",
             },
         ],
-    )
+    }
+    if token_cap:
+        request["max_tokens"] = token_cap
+
+    response = client.chat.completions.create(**request)
 
     return response.choices[0].message.content or ""
 
@@ -299,6 +330,7 @@ def save_run_manifest(
     files: list[dict[str, str]],
     info: list[str],
     machine_info: dict[str, str],
+    timings: dict[str, float] | None = None,
 ) -> Path:
     manifest_path = output_dir / "run_manifest.json"
     enabled_modules = os.environ.get("SCAN_ASSESS_ENABLED_MODULES", "").strip()
@@ -321,6 +353,7 @@ def save_run_manifest(
         "enabled_modules": [item for item in enabled_modules.split(",") if item] if enabled_modules else "all detected modules",
         "module_runtime_config": module_runtime_config,
         "run_machine": machine_info,
+        "timings": timings or {},
         "module_runner_information": info,
         "input_files": [item["filename"] for item in files],
     }
@@ -329,6 +362,7 @@ def save_run_manifest(
 
 
 def run_assessment(options: RunOptions | None = None) -> Path | None:
+    run_started = time.perf_counter()
     options = options or RunOptions()
     run_notes, prompt_profile, llm_profile, scenario, effective_demo = configure_run_mode(options)
     machine_info = run_machine_info()
@@ -354,9 +388,20 @@ def run_assessment(options: RunOptions | None = None) -> Path | None:
             print("Stopping execution due to module runner errors.")
             return None
         payload_files = collect_json_payload(generated_json_files, output_dir)
+    llm_started = time.perf_counter()
     report_body = analyze_with_llm(payload_files, prompt_profile, llm_profile)
-    report_path = save_report(ts, report_dir, report_body, payload_files, [*run_notes, *runner_info], machine_info)
-    manifest_path = save_run_manifest(ts, output_dir, report_path, prompt_profile, llm_profile, scenario, payload_files, [*run_notes, *runner_info], machine_info)
+    llm_seconds = time.perf_counter() - llm_started
+    total_seconds = time.perf_counter() - run_started
+    timing_info = [
+        f"LLM report generation time: {_format_duration(llm_seconds)}",
+        f"total assessment time before report write: {_format_duration(total_seconds)}",
+    ]
+    timings = {
+        "llm_report_generation_seconds": round(llm_seconds, 3),
+        "total_assessment_before_report_write_seconds": round(total_seconds, 3),
+    }
+    report_path = save_report(ts, report_dir, report_body, payload_files, [*run_notes, *runner_info, *timing_info], machine_info)
+    manifest_path = save_run_manifest(ts, output_dir, report_path, prompt_profile, llm_profile, scenario, payload_files, [*run_notes, *runner_info, *timing_info], machine_info, timings)
 
     print(f"\nReport saved to: {report_path}")
     print(f"Run manifest saved to: {manifest_path}")

@@ -1561,6 +1561,8 @@ def main_page() -> None:
         "generator_selected_module": next((row["module"] for row in _module_rows() if row["status"] == "detected"), ""),
         "active_llm_profile": "local-llamacpp" if "local-llamacpp" in list_llm_profiles() else next(iter(list_llm_profiles()), None),
         "settings_processes": {},
+        "report_token_cap_enabled": True,
+        "report_token_cap": 1200,
         "dnscap_log_root": _default_dnscap_log_root(),
         "dnscap_period": _default_dnscap_period(),
         "dnscap_start": str(load_module_runtime_config(MODULES_ROOT / "dnscap").get("start") or ""),
@@ -1746,6 +1748,10 @@ def main_page() -> None:
                         cmd.extend(["--llm-profile", str(state["active_llm_profile"])])
                     env = os.environ.copy()
                     env["SCAN_ASSESS_ENABLED_MODULES"] = ",".join(enabled_modules)
+                    if bool(report_token_cap_enabled.value):
+                        env["SCAN_ASSESS_MAX_REPORT_TOKENS"] = str(int(report_token_cap.value or 1200))
+                    else:
+                        env.pop("SCAN_ASSESS_MAX_REPORT_TOKENS", None)
                     save_dnscap_runtime_config()
                     process = await asyncio.create_subprocess_exec(
                         *cmd,
@@ -1892,6 +1898,30 @@ def main_page() -> None:
                                     assessment_context_capacity = ui.markdown("").classes("sa-band p-2 sa-muted sa-code sa-scan-output")
                                     output_preview = ui.markdown("").classes("sa-band p-2 sa-muted sa-code sa-scan-output")
                                     assessment_run_button = ui.button("Run Assessment", icon="security", on_click=run_live_assessment).classes("w-full")
+                                with ui.row().classes("w-full gap-3 items-end"):
+                                    report_token_cap_enabled = ui.checkbox(
+                                        "Limit report output",
+                                        value=bool(state["report_token_cap_enabled"]),
+                                    ).classes("sa-muted")
+                                    report_token_cap = ui.number(
+                                        "Max report output tokens",
+                                        value=int(state["report_token_cap"]),
+                                        min=128,
+                                        max=8192,
+                                        step=128,
+                                    ).classes("sa-small-field")
+
+                                    def sync_report_token_cap() -> None:
+                                        state["report_token_cap_enabled"] = bool(report_token_cap_enabled.value)
+                                        state["report_token_cap"] = int(report_token_cap.value or 1200)
+                                        if report_token_cap_enabled.value:
+                                            report_token_cap.enable()
+                                        else:
+                                            report_token_cap.disable()
+
+                                    report_token_cap_enabled.on_value_change(lambda event: sync_report_token_cap())
+                                    report_token_cap.on_value_change(lambda event: sync_report_token_cap())
+                                    sync_report_token_cap()
                                 ui.markdown(f"**Run machine:** `{_current_machine_label()}`").classes("sa-muted sa-scan-meta")
                                 run_log = ui.textarea(label="Run log").props("readonly outlined").classes("w-full sa-code sa-run-log")
                             with ui.row().classes("w-full gap-3 items-end"):
