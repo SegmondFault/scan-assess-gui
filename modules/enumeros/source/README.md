@@ -2,6 +2,16 @@
 
 `enumeros` is a small Rust-based multi platform asset inventory tool for defensive security assessment.
 
+## Standalone And scan-assess Use
+
+Enumeros is a standalone inventory collector. It can be built and run independently to emit JSON describing host, operating-system, and browser-version metadata.
+
+When used with scan-assess, the wrapper in `modules/enumeros/runner.py` runs or imports Enumeros output and contributes that JSON as scan-assess telemetry. scan-assess-gui discovers the module, can enable or disable it, and can show its module-owned validation telemetry options when present.
+
+The Enumeros collector owns the inventory logic. scan-assess and scan-assess-gui consume the resulting telemetry and add report/prompt workflow around it.
+
+In the wider telemetry suite, Enumeros answers: what host, operating-system, and browser/software versions are present, and are any of them likely to need review?
+
 It collects basic local host metadata and prints it as JSON:
 
 - hostname

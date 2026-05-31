@@ -4,6 +4,16 @@
 
 Project label: CNS cab.
 
+## Standalone And scan-assess Use
+
+DNScap/dnslog-agent is a standalone Rust project. It can be built, installed, and run independently as a local DNS logging agent or LAN collector without scan-assess.
+
+When used with scan-assess, the wrapper in `modules/dnscap/runner.py` imports DNScap JSONL/CSV logs and converts the selected time window into scan-assess telemetry. The scan-assess GUI reads the module runtime configuration exposed by that wrapper so an operator can choose the log folder, import period, custom date range, and optional last-run marker from the Modules page.
+
+The Rust agent owns DNS collection. scan-assess and scan-assess-gui only consume the resulting telemetry; they do not replace the background collector.
+
+In the wider telemetry suite, DNScap answers: what DNS activity has been observed for this host or network, and over what time window?
+
 ## What It Captures
 
 The agent captures observable classic DNS traffic over UDP/TCP port 53 using a local packet capture handle and this BPF filter:

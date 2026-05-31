@@ -4,6 +4,16 @@ ThreatSucker is an inspectable threat-intelligence collection and reduction scaf
 
 The first implementation is fixture-based. It does not require API keys, databases, LLM calls, or network access.
 
+## Standalone And scan-assess Use
+
+ThreatSucker is a standalone Python project. It can be run directly with the `ngo_intel` package or `threatsucker` CLI to collect, reduce, score, explain, and inspect NGO-focused threat intelligence.
+
+When used with scan-assess, the wrapper in `modules/threatsucker/runner.py` runs the configured ThreatSucker mode and contributes its reduced intelligence and correlation output as scan-assess telemetry. scan-assess-gui can discover the module, enable or disable it, show config files, and start/open the local ThreatSucker controls page when available.
+
+ThreatSucker owns source configuration, scoring rules, allowlists, local NGO context, and its web controls. scan-assess and scan-assess-gui consume the resulting telemetry and use it as context for reports and validation.
+
+In the wider telemetry suite, ThreatSucker answers: which external threat-intelligence items are relevant enough to pass to an operator or LLM, and why?
+
 ## Modes
 
 ThreatSucker has two modes:
