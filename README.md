@@ -1,6 +1,6 @@
 # scan-assess
 
-A local framework that runs security collection modules, passes their JSON outputs to a local OpenAI-compatible LLM endpoint, and writes a Markdown security report. Currently a fully functional POC, needs validation on deployment.
+A local framework that runs security collection modules, passes their JSON outputs to a local OpenAI-compatible LLM endpoint, and writes a Markdown security report. The GUI version introduces a lot of concepts like prompt/LLM validation via dummy telemetry, context usage estimation, and evidence navigation. As such, it's very much a working POC, that needs thorough testing, validation before deployment in a security-sensetive context.
 
 ## Run The LLM Server
 
