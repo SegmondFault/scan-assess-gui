@@ -4,6 +4,10 @@ GUI-first workbench for a modular defensive telemetry suite.
 
 scan-assess-gui runs small, inspectable security telemetry modules, gathers their JSON outputs, and uses a local or OpenAI-compatible LLM endpoint to produce an operator-friendly Markdown report. The goal is not to hide decisions inside an LLM: the telemetry remains module-owned, structured, and reviewable.
 
+## Visual Preview
+
+![scan-assess workbench reports view](docs/screenshots/workbench.jpg)
+
 ## Joined-Up Telemetry Model
 
 The project is built around independently useful modules that can also plug into scan-assess:
