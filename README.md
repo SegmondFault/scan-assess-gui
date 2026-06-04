@@ -1,6 +1,6 @@
 # scan-assess
 
-A local framework that runs security collection modules, passes their JSON outputs to a local OpenAI-compatible LLM endpoint, and writes a Markdown security report.
+A local framework that runs security collection modules, passes their JSON outputs to a local OpenAI-compatible LLM endpoint, and writes a Markdown security report. Currently a fully functional POC, needs validation on deployment.
 
 ## Run The LLM Server
 
