@@ -2,6 +2,10 @@
 
 A local framework that runs security collection modules, passes their JSON outputs to a local OpenAI-compatible LLM endpoint, and writes a Markdown security report. The GUI version introduces a lot of concepts like prompt/LLM validation via dummy telemetry, context usage estimation, and evidence navigation. As such, it's very much a working POC, that needs thorough testing, validation before deployment in a security-sensetive context.
 
+## Visual Preview
+
+![scan-assess workbench reports view](docs/screenshots/workbench.jpg)
+
 ## Run The LLM Server
 
 Optionally, with llama.cpp, in one terminal:
